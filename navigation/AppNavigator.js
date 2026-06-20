@@ -7,6 +7,8 @@ import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import GamesScreen from "../screens/GamesScreen";
+import FoodChemistryScreen from "../screens/FoodChemistryScreen";
+import FoodLoggerScreen from "../screens/FoodLoggerScreen";
 import MilestonesScreen from "../screens/MilestonesScreen";
 import RecommendationsScreen from "../screens/RecommendationsScreen";
 import SchoolDataScreen from "../screens/SchoolDataScreen";
@@ -87,6 +89,12 @@ export default function AppNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="Games" component={GamesScreen} options={{ title: "Memory Match" }} />
+      <Stack.Screen name="FoodLogger" component={FoodLoggerScreen} options={{ title: "Food Logger" }} />
+      <Stack.Screen
+        name="FoodChemistry"
+        component={FoodChemistryScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen name="Insights" component={LazyInsightsScreen} options={{ title: "Insights" }} />
       <Stack.Screen name="Milestones" component={MilestonesScreen} options={{ title: "Milestones" }} />
       <Stack.Screen

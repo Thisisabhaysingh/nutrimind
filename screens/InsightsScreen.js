@@ -24,22 +24,21 @@ export default function InsightsScreen() {
 
   if (!summary) return <View style={styles.container}><Text>Loading...</Text></View>;
 
-  // Build a simple line using neuroScore across last 7 days (we don't have per-day neuroscore, so we show same neuroScore repeat)
   const labels = Object.keys(summary.days);
-  const neuroData = labels.map(() => summary.neuroScore);
+  const mealTrend = labels.map((day) => summary.days[day] || 0);
 
   // Game scores trend (last 7)
-  const gameScores = (games.slice(0, 7).reverse().map(g => g.points)) || [];
+  const gameScores = (games.slice(0, 7).reverse().map((g) => g.points)) || [];
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Insights & Trends</Text>
 
-      <Text style={{ marginTop: 12 }}>Neuro Score (weekly)</Text>
+      <Text style={{ marginTop: 12 }}>Meals Logged (weekly)</Text>
       <LineChart
         data={{
           labels: labels,
-          datasets: [{ data: neuroData }],
+          datasets: [{ data: mealTrend.length ? mealTrend : [0] }],
         }}
         width={screenWidth - 24}
         height={220}

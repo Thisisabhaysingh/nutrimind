@@ -1,24 +1,28 @@
 import React, { useCallback, useState } from "react";
 import {
   Alert,
+  Dimensions,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { getCurrentUser, load, save, setCurrentUser } from "../utils/storage";
 import { weeklyNutritionSummary } from "../utils/nutrientUtils";
 
+const { width } = Dimensions.get("window");
 const TOTAL_MILESTONES = 8;
 
 export default function DashboardScreen({ navigation }) {
-  const [profile, setProfile] = useState(null);
   const [summary, setSummary] = useState(() => weeklyNutritionSummary([], []));
   const [milestones, setMilestones] = useState([]);
   const [school, setSchool] = useState({});
+  const [userName, setUserName] = useState("Child");
 
   useFocusEffect(
     useCallback(() => {
@@ -35,17 +39,19 @@ export default function DashboardScreen({ navigation }) {
 
         await setCurrentUser(email);
 
-        const users = (await load("users")) || {};
         const meals = (await load("meals")) || [];
         const games = (await load("games")) || [];
         const storedMilestones = (await load("milestones")) || [];
         const schoolData = (await load("school")) || {};
+        const users = (await load("users")) || {};
+        const profile = users[email] || {};
+        const fallbackName = email?.split("@")[0] || "Child";
 
         if (mounted) {
-          setProfile(users[email] || { email });
           setSummary(weeklyNutritionSummary(meals, games, schoolData));
           setMilestones(storedMilestones);
           setSchool(schoolData);
+          setUserName(profile.childName || profile.name || fallbackName);
         }
       }
 
@@ -63,273 +69,556 @@ export default function DashboardScreen({ navigation }) {
     navigation.replace("Welcome");
   }
 
-  function showFoodLoggerNotice() {
-    Alert.alert(
-      "Food logging is not wired yet",
-      "The scoring engine already supports meals, but this workspace does not include a Food Logger screen."
-    );
+  const mealCount = summary.mealCount || 0;
+  const diversityScore = summary.diversityScore || 0;
+  const focusScore = summary.neurotransmitterScores?.dopamine || 0;
+  const gamingScore = summary.gamingScore || 0;
+  const brainBoost = summary.gamingBonus
+    ? summary.gamingBonus.acetylcholine + summary.gamingBonus.dopamine + summary.gamingBonus.micronutrients
+    : 0;
+  const brainScore = Math.max(0, Math.min(100, summary.healthScore || 0));
+  const milestoneProgress = Math.round((milestones.length / TOTAL_MILESTONES) * 100);
+
+  const stats = [
+    {
+      icon: "🍽️",
+      value: mealCount,
+      label: "Meals Logged",
+      detail: "this week",
+    },
+    {
+      icon: "🍎",
+      value: diversityScore,
+      label: "Diversity Score",
+      detail: "out of 100",
+    },
+    {
+      icon: "🎯",
+      value: focusScore,
+      label: "Focus Score",
+      detail: "dopamine",
+    },
+    {
+      icon: "🎮",
+      value: gamingScore,
+      label: "Gaming Score",
+      detail: `${summary.gamesPlayed || 0} games`,
+    },
+    {
+      icon: "🧠",
+      value: `+${brainBoost}`,
+      label: "Brain Boost",
+      detail: "from gaming",
+    },
+  ];
+
+  function showStatDetail(label) {
+    let title = label;
+    let message = "";
+
+    switch (label) {
+      case "Diversity Score":
+        message =
+          "Measures variety in your diet (0-100).\nHigher scores = eating from more food groups.\n\nBenefits:\n• Complete nutrition\n• Better brain development\n• All essential vitamins\n\nGoal: 60+ (eating 5-6 different food groups)\n\nFormula:\n diversityScore = round((diversitySum / 7) * 100 / 6)\n\nwhere diversitySum is the count of distinct food categories per day over 7 days and 6 categories is treated as the ideal maximum.";
+        break;
+      case "Focus Score":
+        message =
+          "Focus Score is represented by dopamine support from your meals.\nHigher values indicate better attention and motivation support from food.";
+        break;
+      case "Gaming Score":
+        message =
+          "Game score is computed as:\n points = max(1, round(100 - moves * 2))\n\nThis means fewer moves give a higher matching score and better brain training boost.";
+        break;
+      case "Brain Boost":
+        message =
+          "Brain Boost is the gameplay contribution to your overall health score.\nIt is derived from your latest game score and gives extra value to dopamine, acetylcholine, and micronutrients.";
+        break;
+      case "Meals Logged":
+        message =
+          "Tracks the number of meals you logged this week.\nThe more meals logged, the richer the nutrition data for scoring.";
+        break;
+      default:
+        message = "No details available.";
+    }
+
+    Alert.alert(title, message, [{ text: "OK" }]);
   }
 
-  const milestoneProgress = Math.round((milestones.length / TOTAL_MILESTONES) * 100);
-  const childName = profile?.childName || "your child";
-
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.kicker}>NutriMind</Text>
-          <Text style={styles.title}>Hi, {profile?.name || "there"}</Text>
-          <Text style={styles.subtitle}>Tracking nutrition, learning, and progress for {childName}.</Text>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#087CAF" />
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.topBand}>
+          <View style={styles.topHeaderRow}>
+            <View style={styles.topHeaderText}>
+              <Text style={styles.greetingTitle}>Hello!</Text>
+              <Text style={styles.greetingName}>{userName}</Text>
+              <Text style={styles.greetingSubtitle}>Let's track your nutrition</Text>
+            </View>
+            <TouchableOpacity style={styles.avatarButton} activeOpacity={0.8} onPress={logout}>
+              <Text style={styles.avatarIcon}>👤</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-          <Text style={styles.logoutText}>Log out</Text>
-        </TouchableOpacity>
-      </View>
 
-      <View style={styles.scorePanel}>
-        <Text style={styles.scoreLabel}>Health Score</Text>
-        <Text style={styles.scoreValue}>{summary.healthScore}</Text>
-        <Text style={styles.scoreHint}>
-          Weighted from academics, food, games, and dietary diversity.
-        </Text>
-      </View>
+        <View style={styles.scoreCard}>
+          <View style={styles.scoreHeader}>
+            <Text style={styles.scoreTitle}>Brain Health Score</Text>
+            <View style={styles.alertPill}>
+              <View style={styles.alertDot} />
+              <Text style={styles.alertText}>Needs Attention</Text>
+            </View>
+          </View>
 
-      <View style={styles.statsGrid}>
-        <StatCard label="Food" value={summary.foodScore} />
-        <StatCard label="Academics" value={summary.academicsScore} />
-        <StatCard label="Games" value={summary.gamingScore} />
-        <StatCard label="Diversity" value={summary.diversityScore} />
-      </View>
+          <View style={styles.scoreBody}>
+            <View style={styles.scoreNumberRow}>
+              <Text style={styles.scoreNumber}>{brainScore}</Text>
+              <Text style={styles.scoreTotal}>/100</Text>
+            </View>
+            <Text style={styles.scoreCopy}>
+              Improve with better{"\n"}nutrition & brain training
+            </Text>
+          </View>
 
-      <View style={styles.statsGrid}>
-        <StatCard label="Meals" value={summary.mealCount} />
-        <StatCard label="Categories" value={summary.uniqueCategories} />
-        <StatCard label="Games Played" value={summary.gamesPlayed} />
-        <StatCard label="Milestones" value={`${milestoneProgress}%`} />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <ActionButton title="Log Food" detail="Add meals for nutrition scoring" onPress={showFoodLoggerNotice} />
-        <ActionButton title="Play Memory Match" detail="Earn a cognitive boost" onPress={() => navigation.navigate("Games")} />
-        <ActionButton title="Update Milestones" detail="Track cognitive development" onPress={() => navigation.navigate("Milestones")} />
-        <ActionButton title="School Data" detail="Save attendance, grades, and notes" onPress={() => navigation.navigate("SchoolData")} />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Review</Text>
-        <View style={styles.reviewRow}>
-          <TouchableOpacity style={styles.reviewButton} onPress={() => navigation.navigate("Insights")}>
-            <Text style={styles.reviewButtonText}>Insights</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.reviewButton} onPress={() => navigation.navigate("Recommendations")}>
-            <Text style={styles.reviewButtonText}>Tips</Text>
+          <View style={styles.divider} />
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => navigation.navigate("Insights")}
+          >
+            <Text style={styles.breakdownText}>Tap for breakdown -></Text>
           </TouchableOpacity>
         </View>
-      </View>
 
-      <View style={styles.schoolPanel}>
-        <Text style={styles.schoolTitle}>School Snapshot</Text>
-        <Text style={styles.schoolText}>Attendance: {school.attendance || "Not added"}{school.attendance ? "%" : ""}</Text>
-        <Text style={styles.schoolText}>Grades: {school.grades || "Not added"}</Text>
-      </View>
-    </ScrollView>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Your Stats</Text>
+        </View>
+
+        <View style={styles.statsTopRow}>
+          {stats.slice(0, 3).map((stat) => (
+            <StatCard
+              key={stat.label}
+              icon={stat.icon}
+              badge="i"
+              value={stat.value}
+              label={stat.label}
+              detail={stat.detail}
+              style={styles.statCardTop}
+              onPress={() => showStatDetail(stat.label)}
+            />
+          ))}
+        </View>
+
+        <View style={styles.statsBottomRow}>
+          {stats.slice(3).map((stat) => (
+            <StatCard
+              key={stat.label}
+              icon={stat.icon}
+              badge="i"
+              value={stat.value}
+              label={stat.label}
+              detail={stat.detail}
+              style={styles.statCardBottom}
+              onPress={() => showStatDetail(stat.label)}
+            />
+          ))}
+        </View>
+
+        <View style={styles.quickHeader}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <TouchableOpacity onPress={() => navigation.navigate("Recommendations")}>
+            <Text style={styles.swipeText}>Swipe -></Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={width * 0.8 + 16}
+          decelerationRate="fast"
+          contentContainerStyle={styles.actionsTrack}
+        >
+          <ActionTile
+            title="Games"
+            icon="🎮"
+            onPress={() => navigation.navigate("Games")}
+          />
+          <ActionTile
+            title="Food Chemistry"
+            icon="⚗️"
+            onPress={() => navigation.navigate("FoodChemistry")}
+          />
+            <ActionTile
+            title="Log Food"
+            icon="🍎"
+            onPress={() => navigation.navigate("FoodLogger")}
+          />
+          <ActionTile
+            title="Milestones"
+            icon="🏅"
+            onPress={() => navigation.navigate("Milestones")}
+          />
+          <ActionTile
+            title="School"
+            icon="📚"
+            onPress={() => navigation.navigate("SchoolData")}
+          />
+        </ScrollView>
+
+        <View style={styles.hiddenInfo}>
+          <Text style={styles.hiddenInfoText}>
+            Attendance {school.attendance || "--"} · Milestones {milestoneProgress}%
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-function StatCard({ label, value }) {
+function StatCard({ icon, badge, value, label, detail, footer, style, onPress }) {
   return (
-    <View style={styles.statCard}>
+    <TouchableOpacity style={[styles.statCard, style]} onPress={onPress} activeOpacity={0.8}>
+      <Text style={styles.statIcon}>{icon}</Text>
+      <View style={styles.infoBadge}>
+        <Text style={styles.infoBadgeText}>{badge}</Text>
+      </View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
+      <Text style={styles.statDetail}>{detail}</Text>
+      {footer ? <Text style={styles.statFooter}>{footer}</Text> : null}
+    </TouchableOpacity>
   );
 }
 
-function ActionButton({ title, detail, onPress }) {
+function ActionTile({ title, icon, onPress }) {
   return (
-    <TouchableOpacity style={styles.actionButton} onPress={onPress} activeOpacity={0.8}>
-      <View>
-        <Text style={styles.actionTitle}>{title}</Text>
-        <Text style={styles.actionDetail}>{detail}</Text>
+    <TouchableOpacity
+      style={styles.actionTile}
+      onPress={onPress}
+      activeOpacity={0.86}
+    >
+      <View style={styles.actionBubble} />
+      <Text style={styles.actionIcon}>{icon}</Text>
+      <Text style={styles.actionTitle}>{title}</Text>
+      <View style={styles.actionArrow}>
+        <Text style={styles.actionArrowText}>-></Text>
       </View>
-      <Text style={styles.actionArrow}>></Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#087CAF",
+  },
   screen: {
     flex: 1,
-    backgroundColor: "#E0F2FE",
+    backgroundColor: "#FAFAFA",
   },
   content: {
-    padding: 20,
-    paddingTop: 52,
+    paddingBottom: 48,
   },
-  header: {
+  topBand: {
+    minHeight: 170,
+    backgroundColor: "#087CAF",
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    paddingHorizontal: 26,
+    paddingTop: 24,
+    paddingBottom: 18,
+  },
+  topHeaderRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: 12,
-    marginBottom: 20,
+    alignItems: "flex-start",
   },
-  kicker: {
-    color: "#64748B",
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: 4,
+  topHeaderText: {
+    flex: 1,
+    paddingRight: 12,
   },
-  title: {
-    color: "#0369A1",
-    fontSize: 28,
-    fontWeight: "900",
-  },
-  subtitle: {
-    color: "#64748B",
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 19,
-    maxWidth: 260,
-    marginTop: 4,
-  },
-  logoutButton: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#64748B",
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  logoutText: {
-    color: "#0369A1",
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  scorePanel: {
-    backgroundColor: "#0369A1",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 14,
-  },
-  scoreLabel: {
-    color: "#E0F2FE",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  scoreValue: {
+  greetingTitle: {
     color: "#FFFFFF",
-    fontSize: 58,
+    fontSize: 30,
     fontWeight: "900",
-    marginVertical: 4,
+    marginBottom: 6,
   },
-  scoreHint: {
-    color: "#E0F2FE",
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 18,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 22,
-  },
-  statCard: {
-    width: "48%",
-    backgroundColor: "#FFFFFF",
-    borderColor: "#64748B",
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 14,
-  },
-  statValue: {
-    color: "#0369A1",
-    fontSize: 24,
-    fontWeight: "900",
-    marginBottom: 2,
-  },
-  statLabel: {
-    color: "#64748B",
-    fontSize: 11,
+  greetingName: {
+    color: "#FFFFFF",
+    fontSize: 22,
     fontWeight: "800",
+    marginBottom: 6,
   },
-  section: {
-    marginBottom: 22,
+  greetingSubtitle: {
+    color: "#D6EEFF",
+    fontSize: 14,
+    lineHeight: 20,
   },
-  sectionTitle: {
-    color: "#0369A1",
+  avatarButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarIcon: {
+    fontSize: 22,
+  },
+  scoreCard: {
+    alignSelf: "center",
+    width: width - 34,
+    minHeight: 186,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    marginTop: -19,
+    paddingHorizontal: 27,
+    paddingTop: 29,
+    paddingBottom: 16,
+    shadowColor: "#66A9C8",
+    shadowOffset: { width: 0, height: 9 },
+    shadowOpacity: 0.26,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  scoreHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  scoreTitle: {
+    color: "#172235",
     fontSize: 16,
     fontWeight: "900",
-    marginBottom: 10,
   },
-  actionButton: {
+  alertPill: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderColor: "#64748B",
+    backgroundColor: "#FFE2E2",
     borderRadius: 12,
-    borderWidth: 1,
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
-    padding: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
-  actionTitle: {
-    color: "#0369A1",
-    fontSize: 14,
-    fontWeight: "900",
+  alertDot: {
+    width: 12,
+    height: 12,
+    backgroundColor: "#FF4B4B",
+    borderRadius: 6,
+    marginRight: 5,
   },
-  actionDetail: {
-    color: "#64748B",
+  alertText: {
+    color: "#D45A5A",
     fontSize: 11,
-    fontWeight: "600",
-    marginTop: 3,
-  },
-  actionArrow: {
-    color: "#0369A1",
-    fontSize: 20,
     fontWeight: "900",
   },
-  reviewRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  reviewButton: {
+  scoreBody: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderColor: "#0369A1",
-    borderRadius: 12,
-    borderWidth: 2,
-    flex: 1,
-    paddingVertical: 14,
+    flexDirection: "row",
+    marginTop: 26,
   },
-  reviewButtonText: {
-    color: "#0369A1",
-    fontSize: 14,
+  scoreNumberRow: {
+    alignItems: "flex-end",
+    flexDirection: "row",
+    width: 120,
+  },
+  scoreNumber: {
+    color: "#0C7EAD",
+    fontSize: 58,
     fontWeight: "900",
+    lineHeight: 62,
   },
-  schoolPanel: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#64748B",
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 20,
-  },
-  schoolTitle: {
-    color: "#0369A1",
-    fontSize: 14,
+  scoreTotal: {
+    color: "#96A3B3",
+    fontSize: 24,
     fontWeight: "900",
     marginBottom: 8,
   },
-  schoolText: {
-    color: "#64748B",
-    fontSize: 12,
+  scoreCopy: {
+    color: "#536477",
+    fontSize: 14,
     fontWeight: "700",
-    marginBottom: 4,
+    lineHeight: 18,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#EDF1F4",
+    marginTop: 24,
+    marginBottom: 14,
+  },
+  breakdownText: {
+    color: "#8AA0B0",
+    fontSize: 12,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  sectionHeader: {
+    marginTop: 30,
+    paddingHorizontal: 25,
+  },
+  sectionTitle: {
+    color: "#152238",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  statsTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 25,
+    marginTop: 15,
+  },
+  statsBottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 25,
+    marginTop: 14,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 25,
+    marginTop: 15,
+  },
+  statCardTop: {
+    width: (width - 80) / 3,
+  },
+  statCardBottom: {
+    width: (width - 70) / 2,
+  },
+  statCard: {
+    alignItems: "center",
+    width: (width - 60) / 2,
+    minHeight: 170,
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E7EDF2",
+    borderRadius: 15,
+    borderWidth: 1,
+    paddingTop: 18,
+    paddingHorizontal: 10,
+    marginBottom: 14,
+    shadowColor: "#93A4B4",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.24,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  statIcon: {
+    fontSize: 35,
+    lineHeight: 43,
+    height: 43,
+  },
+  infoBadge: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 19,
+    height: 19,
+    backgroundColor: "#DFF5FF",
+    borderRadius: 10,
+    marginTop: 4,
+    marginBottom: 11,
+  },
+  infoBadgeText: {
+    color: "#52A9CB",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  statValue: {
+    color: "#142238",
+    fontSize: 24,
+    fontWeight: "900",
+    lineHeight: 27,
+  },
+  statLabel: {
+    color: "#475A6F",
+    fontSize: 12,
+    fontWeight: "900",
+    lineHeight: 15,
+    marginTop: 7,
+    textAlign: "center",
+  },
+  statDetail: {
+    color: "#66788D",
+    fontSize: 10,
+    fontWeight: "700",
+    lineHeight: 13,
+    textAlign: "center",
+  },
+  statFooter: {
+    color: "#A7B4BF",
+    fontSize: 9,
+    fontWeight: "700",
+    lineHeight: 12,
+    textAlign: "center",
+  },
+  quickHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 30,
+    paddingHorizontal: 25,
+  },
+  swipeText: {
+    color: "#8FA2B1",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  actionsTrack: {
+    gap: 16,
+    paddingHorizontal: 25,
+    paddingTop: 27,
+    paddingRight: 44,
+  },
+  actionTile: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: width * 0.8,
+    height: 135,
+    backgroundColor: "#0B78AB",
+    borderRadius: 19,
+    overflow: "hidden",
+  },
+  actionBubble: {
+    position: "absolute",
+    right: -26,
+    top: -35,
+    width: 142,
+    height: 142,
+    borderRadius: 71,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  actionIcon: {
+    fontSize: 42,
+    marginBottom: 12,
+  },
+  actionTitle: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  actionArrow: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "absolute",
+    right: 22,
+    bottom: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,0.22)",
+  },
+  actionArrowText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  hiddenInfo: {
+    alignItems: "center",
+    paddingTop: 20,
+  },
+  hiddenInfoText: {
+    color: "#FAFAFA",
+    fontSize: 1,
   },
 });

@@ -8,7 +8,7 @@
  * Updated to include all new food categories from FoodLogger
  */
 
-const NUTRIENT_MAPPING = {
+export const NUTRIENT_MAPPING = {
   // Original categories
   Fruits: {
     serotonin: 20,
